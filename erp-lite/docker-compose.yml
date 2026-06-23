@@ -1,0 +1,78 @@
+# version: '3.9'  # Opcional en Compose v2, la puedes dejar comentada
+services:
+  # PostgreSQL - Transactional database (Orders, Products)
+  postgres:
+    image: postgres:17
+    container_name: erp-postgres
+    environment:
+      POSTGRES_DB: erp_db
+      POSTGRES_USER: debuggeandoideas
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/postgresql:/docker-entrypoint-initdb.d
+    networks:
+      - erp-vpc
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U debuggeandoideas -d erp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB - Document database (Catalogs, AuditLogs, Product Queries)
+  mongodb:
+    image: mongo:8
+    container_name: erp-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: debuggeandoideas
+      MONGO_INITDB_ROOT_PASSWORD: secret
+      MONGO_INITDB_DATABASE: erp_catalog_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./db/mongodb:/docker-entrypoint-initdb.d
+    networks:
+      - erp-vpc
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "-u", "debuggeandoideas", "-p", "secret", "--authenticationDatabase", "admin", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Redis - Catalog cache
+  redis:
+    image: redis:7
+    container_name: erp-redis
+    command: redis-server --requirepass secret --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    networks:
+      - erp-vpc
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "secret", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  #ADD in next class
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: always
+    container_name: redis-ui
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:secret
+      - HTTP_USER=debuggeandoideas    
+      - HTTP_PASSWORD=secret
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - erp-vpc
+      
+networks:
+  erp-vpc:
+    driver: bridge

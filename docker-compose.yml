@@ -3,15 +3,16 @@ services:
   # PostgreSQL - Transactional database (Orders, Products)
   postgres:
     image: postgres:17
+    restart: unless-stopped
     container_name: erp-postgres
     environment:
       POSTGRES_DB: erp_db
       POSTGRES_USER: debuggeandoideas
       POSTGRES_PASSWORD: secret
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - ./db/postgresql:/docker-entrypoint-initdb.d
+      - ./erp-lite/db/postgresql:/docker-entrypoint-initdb.d
     networks:
       - erp-vpc
     healthcheck:
@@ -23,6 +24,7 @@ services:
   # MongoDB - Document database (Catalogs, AuditLogs, Product Queries)
   mongodb:
     image: mongo:8
+    restart: unless-stopped
     container_name: erp-mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: debuggeandoideas
@@ -44,6 +46,7 @@ services:
   # Redis - Catalog cache
   redis:
     image: redis:7
+    restart: unless-stopped
     container_name: erp-redis
     command: redis-server --requirepass secret --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
@@ -60,7 +63,7 @@ services:
   #ADD in next class
   redis-commander:
     image: rediscommander/redis-commander:latest
-    restart: always
+    restart: unless-stopped
     container_name: redis-ui
     environment:
       - REDIS_HOSTS=local:redis:6379:0:secret
@@ -73,6 +76,6 @@ services:
     networks:
       - erp-vpc
       
-networks:
+networks: 
   erp-vpc:
     driver: bridge

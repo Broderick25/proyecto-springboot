@@ -33,7 +33,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./db/mongodb:/docker-entrypoint-initdb.d
+      - ./erp-lite/db/mongodb:/docker-entrypoint-initdb.d
     networks:
       - erp-vpc
     healthcheck:
@@ -67,12 +67,13 @@ services:
     container_name: redis-ui
     environment:
       - REDIS_HOSTS=local:redis:6379:0:secret
-      - HTTP_USER=debuggeandoideas    
+      - HTTP_USER=debuggeandoideas
       - HTTP_PASSWORD=secret
     ports:
       - "8081:8081"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - erp-vpc
       

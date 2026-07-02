@@ -6,18 +6,20 @@ Schema: `public` · Base de datos: PostgreSQL · Tablas: `orders`, `order_produc
 
 ## Tabla de contenido
 
-1. [Dependencia Lombok (pom.xml)](#1-dependencia-lombok-pomxml)
-2. [Entidad `Order`](#2-entidad-order)
-3. [Entidad `Product`](#3-entidad-product)
-4. [Entidad `OrderProduct`](#4-entidad-orderproduct)
-5. [Repositorios](#5-repositorios)
-6. [Reglas Lombok + JPA](#6-reglas-lombok--jpa)
+1. [Dependencias (pom.xml)](#1-dependencias-pomxml)
+2. [Enum `OrderStatus`](#2-enum-orderstatus)
+3. [BaseEntity — campos de auditoría](#3-baseentity--campos-de-auditoría)
+4. [Entidad `Order`](#4-entidad-order)
+5. [Entidad `Product`](#5-entidad-product)
+6. [Entidad `OrderProduct`](#6-entidad-orderproduct)
+7. [Repositorios](#7-repositorios)
+8. [Reglas Lombok + JPA](#8-reglas-lombok--jpa)
 
 ---
 
-## 1. Dependencia Lombok (pom.xml)
+## 1. Dependencias (pom.xml)
 
-Agregar al `pom.xml` existente:
+**`erp-domain/pom.xml`** — Lombok y JPA (ya existentes):
 
 ```xml
 <dependency>
@@ -25,9 +27,26 @@ Agregar al `pom.xml` existente:
     <artifactId>lombok</artifactId>
     <optional>true</optional>
 </dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
 ```
 
-Y excluirlo del fat-jar en el plugin:
+> `spring-boot-starter-data-jpa` incluye `jakarta.validation-api` de forma transitiva,
+> por lo que las anotaciones `@NotNull`, `@Min`, etc. compilan en `erp-domain` sin dependencia extra.
+
+**`erp-api/pom.xml`** — Implementación de Bean Validation (necesaria para ejecutar validaciones en controllers):
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+```
+
+Plugin para excluir Lombok del fat-jar (en `erp-api/pom.xml` o `pom.xml` raíz):
 
 ```xml
 <plugin>
@@ -46,15 +65,72 @@ Y excluirlo del fat-jar en el plugin:
 
 ---
 
-## 2. Entidad `Order`
+## 2. Enum `OrderStatus`
+
+El SQL define un CHECK constraint con valores fijos. Modelarlo como enum previene valores inválidos desde Java, sin esperar al rechazo del DB.
 
 ```java
-package com.example.domain.entity;
+package com.SpringBoot.domain.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+public enum OrderStatus {
+    PENDING,
+    CONFIRMED,
+    SHIPPED,
+    DELIVERED,
+    CANCELLED
+}
+```
+
+---
+
+## 3. BaseEntity — campos de auditoría
+
+`createdAt` y `updatedAt` son idénticos en `Order` y `Product`. Un `@MappedSuperclass` los centraliza y evita repetición cuando se agreguen más entidades.
+
+```java
+package com.SpringBoot.domain.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.MappedSuperclass;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+
+@MappedSuperclass
+@Getter
+public abstract class BaseEntity {
+
+    @CreationTimestamp
+    @Setter(AccessLevel.NONE)           // Hibernate gestiona este campo; bloquear setter externo
+    @Column(name = "created_at", nullable = false, updatable = false,
+            columnDefinition = "timestamp without time zone")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Setter(AccessLevel.NONE)
+    @Column(name = "updated_at", nullable = false,
+            columnDefinition = "timestamp without time zone")
+    private LocalDateTime updatedAt;
+}
+```
+
+---
+
+## 4. Entidad `Order`
+
+```java
+package com.SpringBoot.domain.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
@@ -77,51 +153,56 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @ToString(exclude = "orderProducts")                // Excluir colecciones evita StackOverflow en relaciones bidireccionales
-public class Order {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)   // equals/hashCode SOLO por PK, nunca por campos lazy
+public class Order extends BaseEntity {
 
+    @EqualsAndHashCode.Include
     @Id
     @UuidGenerator
     @Column(name = "id", nullable = false, updatable = false, columnDefinition = "uuid")
     private UUID id;
 
+    @NotBlank
+    @Size(max = 50)
     @Column(name = "order_number", nullable = false, unique = true, length = 50)
     private String orderNumber;
 
+    @NotNull
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    @NotBlank
+    @Size(max = 200)
     @Column(name = "customer_name", nullable = false, length = 200)
     private String customerName;
 
+    @NotBlank
+    @Size(max = 100)
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
+    @NotNull
+    @Builder.Default
     @Column(name = "order_date", nullable = false,
             columnDefinition = "timestamp without time zone")
-    private LocalDateTime orderDate;
+    private LocalDateTime orderDate = LocalDateTime.now();  // @Builder.Default evita null si se omite en el builder
 
+    @NotNull
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "PENDING";
+    private OrderStatus status = OrderStatus.PENDING;       // enum previene valores fuera del CHECK constraint
 
+    @NotNull
+    @DecimalMin("0.00")
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @NotBlank
+    @Size(min = 3, max = 3)
     @Builder.Default
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "USD";
-
-    @CreationTimestamp
-    @Setter(AccessLevel.NONE)                       // Hibernate gestiona este campo; bloquear setter externo
-    @Column(name = "created_at", nullable = false, updatable = false,
-            columnDefinition = "timestamp without time zone")
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Setter(AccessLevel.NONE)
-    @Column(name = "updated_at", nullable = false,
-            columnDefinition = "timestamp without time zone")
-    private LocalDateTime updatedAt;
 
     @Builder.Default
     @OneToMany(
@@ -149,19 +230,21 @@ public class Order {
 
 ---
 
-## 3. Entidad `Product`
+## 5. Entidad `Product`
 
 ```java
-package com.example.domain.entity;
+package com.SpringBoot.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -180,51 +263,50 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @ToString(exclude = "orderProducts")
-public class Product {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)   // equals/hashCode SOLO por PK, nunca por campos lazy
+public class Product extends BaseEntity {
 
+    @EqualsAndHashCode.Include
     @Id
     @UuidGenerator
     @Column(name = "id", nullable = false, updatable = false, columnDefinition = "uuid")
     private UUID id;
 
+    @NotBlank
+    @Size(max = 50)
     @Column(name = "sku", nullable = false, unique = true, length = 50)
     private String sku;
 
+    @NotBlank
+    @Size(max = 200)
     @Column(name = "name", nullable = false, length = 200)
     private String name;
 
     @Column(name = "description", columnDefinition = "text")
     private String description;
 
+    @NotNull
+    @DecimalMin("0.00")
     @Column(name = "price", nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
+    @Min(0)
     @Builder.Default
     @Column(name = "stock", nullable = false, columnDefinition = "integer default 0")
     private Integer stock = 0;
 
-    // Desnormalizado: no existe tabla categories en el schema
+    // Desnormalizado: referencia al ID de documento en MongoDB (erp_catalog_db)
+    @Size(max = 100)
     @Column(name = "category_id", length = 100)
     private String categoryId;
 
+    @Size(max = 500)
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Builder.Default
     @Column(name = "active", nullable = false, columnDefinition = "boolean default true")
     private Boolean active = Boolean.TRUE;
-
-    @CreationTimestamp
-    @Setter(AccessLevel.NONE)
-    @Column(name = "created_at", nullable = false, updatable = false,
-            columnDefinition = "timestamp without time zone")
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Setter(AccessLevel.NONE)
-    @Column(name = "updated_at", nullable = false,
-            columnDefinition = "timestamp without time zone")
-    private LocalDateTime updatedAt;
 
     // ON DELETE RESTRICT → NO se propaga cascade de borrado desde Product
     @Builder.Default
@@ -239,12 +321,17 @@ public class Product {
 
 ---
 
-## 4. Entidad `OrderProduct`
+## 6. Entidad `OrderProduct`
 
 ```java
-package com.example.domain.entity;
+package com.SpringBoot.domain.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -276,6 +363,7 @@ public class OrderProduct {
     private UUID id;
 
     // FK → orders.id | ON DELETE CASCADE
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
         name = "order_id",
@@ -289,6 +377,7 @@ public class OrderProduct {
     private Order order;
 
     // FK → products.id | ON DELETE RESTRICT
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
         name = "product_id",
@@ -302,15 +391,23 @@ public class OrderProduct {
     private Product product;
 
     // Snapshot del nombre en el momento del pedido
+    @NotBlank
+    @Size(max = 200)
     @Column(name = "product_name", nullable = false, length = 200)
     private String productName;
 
+    @NotNull
+    @Min(1)
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
+    @NotNull
+    @DecimalMin("0.00")
     @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
+    @NotNull
+    @DecimalMin("0.00")
     @Column(name = "subtotal", nullable = false, precision = 15, scale = 2)
     private BigDecimal subtotal;
 
@@ -336,14 +433,20 @@ public class OrderProduct {
 
 ---
 
-## 5. Repositorios
+## 7. Repositorios
+
+> **Nota arquitectónica:** En arquitectura hexagonal estricta, estas interfaces deberían ser puertos de dominio
+> sin dependencia de Spring Data, y `erp-infrastructure` proveería la implementación JPA.
+> El enfoque actual (extender `JpaRepository` directamente en `erp-domain`) es pragmático y válido
+> mientras el proyecto no requiera cambiar la implementación de persistencia.
 
 ### OrderRepository
 
 ```java
-package com.example.domain.repository;
+package com.SpringBoot.domain.repository;
 
-import com.example.domain.entity.Order;
+import com.SpringBoot.domain.entity.Order;
+import com.SpringBoot.domain.entity.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -358,7 +461,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByOrderNumber(String orderNumber);
     List<Order> findByCustomerId(Long customerId);
-    List<Order> findByStatus(String status);
+    List<Order> findByStatus(OrderStatus status);   // tipado con enum, no String
 
     // JOIN FETCH para evitar N+1 al cargar los items de una orden
     @Query("SELECT o FROM Order o JOIN FETCH o.orderProducts WHERE o.id = :id")
@@ -369,9 +472,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 ### ProductRepository
 
 ```java
-package com.example.domain.repository;
+package com.SpringBoot.domain.repository;
 
-import com.example.domain.entity.Product;
+import com.SpringBoot.domain.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -392,9 +495,9 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 ### OrderProductRepository
 
 ```java
-package com.example.domain.repository;
+package com.SpringBoot.domain.repository;
 
-import com.example.domain.entity.OrderProduct;
+import com.SpringBoot.domain.entity.OrderProduct;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -411,9 +514,7 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, UUID
 
 ---
 
-## 6. Reglas Lombok + JPA
-
-Estas son las combinaciones problemáticas que este mapeo resuelve explícitamente.
+## 8. Reglas Lombok + JPA
 
 ### `@Data` — **nunca usar en entidades JPA**
 
@@ -421,7 +522,17 @@ Estas son las combinaciones problemáticas que este mapeo resuelve explícitamen
 - Las colecciones lazy no están inicializadas al comparar.
 - El `hashCode` cambia entre el estado transient y persistido.
 
-**Solución aplicada:** `@Getter` + `@Setter` por separado, y `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en `OrderProduct`.
+**Solución aplicada:** `@Getter` + `@Setter` por separado, y `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en **todas** las entidades con `@EqualsAndHashCode.Include` solo en el campo `id`.
+
+---
+
+### `@EqualsAndHashCode` — obligatorio en todas las entidades
+
+Sin declararlo explícitamente, Lombok genera `equals/hashCode` con **todos los campos**, incluyendo colecciones lazy. Esto provoca `LazyInitializationException` al comparar entidades fuera de sesión.
+
+**Solución aplicada:** `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en `Order`, `Product` y `OrderProduct`. Solo el campo `id` está marcado con `@EqualsAndHashCode.Include`.
+
+---
 
 ### `@ToString` — excluir relaciones
 
@@ -429,19 +540,45 @@ Estas son las combinaciones problemáticas que este mapeo resuelve explícitamen
 
 **Solución aplicada:** `@ToString(exclude = "orderProducts")` en `Order` y `Product`; `@ToString(exclude = {"order", "product"})` en `OrderProduct`.
 
+---
+
 ### `@Builder.Default` — valores por defecto
 
 Cuando se usa `@Builder`, Lombok ignora los valores inicializados en la declaración del campo (`= "PENDING"`, `= new ArrayList<>()`). Sin `@Builder.Default` esos valores se pierden al construir via builder.
 
-**Solución aplicada:** `@Builder.Default` en todos los campos con valor por defecto (`status`, `currency`, `stock`, `active`, `orderProducts`).
+**Solución aplicada:** `@Builder.Default` en todos los campos con valor por defecto (`status`, `currency`, `stock`, `active`, `orderDate`, `orderProducts`).
+
+---
 
 ### `@NoArgsConstructor(access = AccessLevel.PROTECTED)`
 
 JPA exige un constructor sin argumentos, pero exponerlo como `public` permite crear entidades en estado inválido. `PROTECTED` satisface el requisito de JPA sin abrir el constructor al código de aplicación.
 
-### Campos de auditoría — `@Setter(AccessLevel.NONE)`
+---
 
-`createdAt` y `updatedAt` son gestionados exclusivamente por `@CreationTimestamp` / `@UpdateTimestamp` de Hibernate. Bloquear el setter evita sobreescrituras accidentales desde la capa de servicio.
+### Campos de auditoría — `@MappedSuperclass` + `@Setter(AccessLevel.NONE)`
+
+`createdAt` y `updatedAt` son gestionados exclusivamente por `@CreationTimestamp` / `@UpdateTimestamp` de Hibernate. Se centralizan en `BaseEntity` para evitar repetición. Bloquear el setter evita sobreescrituras accidentales desde la capa de servicio.
+
+---
+
+### `status` como enum — `@Enumerated(EnumType.STRING)`
+
+Un campo `String` permite asignar cualquier valor hasta que el DB lo rechace con el CHECK constraint. Usando `OrderStatus` (enum) el error se produce en compilación.
+
+`EnumType.STRING` persiste el nombre del enum (`"PENDING"`) en vez del ordinal numérico (`0`), lo que hace la columna legible y resistente a reordenamientos del enum.
+
+---
+
+### Bean Validation — detectar errores antes del DB
+
+Las restricciones del SQL (`price >= 0`, `stock >= 0`, `quantity > 0`, `NOT NULL`) se replican con anotaciones `@NotNull`, `@Min`, `@DecimalMin`, `@NotBlank`, `@Size`. Esto permite:
+- Rechazar datos inválidos en el controller con `@Valid`, antes de llegar a la capa de persistencia.
+- Generar mensajes de error estructurados desde Spring MVC.
+
+Requiere `spring-boot-starter-validation` en `erp-api` para la implementación en runtime.
+
+---
 
 ### Setters manuales en `OrderProduct`
 

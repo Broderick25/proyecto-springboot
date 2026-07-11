@@ -1,0 +1,31 @@
+aws:
+  s3:
+    endpoint: http://localhost:4566
+    region: us-east-1
+    access-key: debuggeandoideas
+    secret-key: secret
+    bucket-name: erp-products-images
+    # true en ambos casos: LocalStack lo exige, y para prod depende del proveedor (AWS real no lo necesita)
+    path-style-enabled: true
+
+    # true -> LocalStack (usa endpoint + credenciales estáticas de arriba)
+    # false -> AWS real (ignora endpoint/credenciales, usa IAM role / credential chain)
+    local-environment: true
+
+    # Cifrado server-side de los objetos subidos (AES256 o aws:kms)
+    sse-algorithm: AES256
+
+    # true = objetos públicos (ACL public-read), false = privados + URL prefirmada
+    public-read: false
+
+    # Minutos de validez de las URLs prefirmadas (subida/lectura)
+    presigned-url-expiration-minutes: 15
+
+    # Content-Types aceptados para subir a este bucket
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+
+    # Tamaño máximo permitido por archivo
+    max-file-size-mb: 5

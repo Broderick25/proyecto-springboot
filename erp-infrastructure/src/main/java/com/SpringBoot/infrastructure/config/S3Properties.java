@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
 import java.util.List;
 
 @Validated
@@ -49,5 +50,11 @@ public record S3Properties(
 
         @NotNull(message = "aws.s3.max-file-size-mb debe estar definido")
         @Min(value = 1, message = "aws.s3.max-file-size-mb debe ser mayor a 0")
-        Integer maxFileSizeMb
+        Integer maxFileSizeMb,
+
+        @NotNull(message = "aws.s3.api-call-timeout debe estar definido")
+        Duration apiCallTimeout,
+
+        @NotNull(message = "aws.s3.api-call-attempt-timeout debe estar definido")
+        Duration apiCallAttemptTimeout
 ) {}

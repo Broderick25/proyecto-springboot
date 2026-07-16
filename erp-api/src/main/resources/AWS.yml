@@ -29,3 +29,7 @@ aws:
 
     # Tamaño máximo permitido por archivo
     max-file-size-mb: 5
+
+    # Timeouts del cliente S3 (evita hilos bloqueados si S3/LocalStack responde lento)
+    api-call-timeout: 10s
+    api-call-attempt-timeout: 5s

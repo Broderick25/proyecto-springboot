@@ -2,7 +2,16 @@ spring:
   application:
     name: erp-lite-api
   config:
-    import: AWS.yml
+    import: AWS.yml,customer.yml
+
+  # Configuración por defecto para todos los clientes HTTP autoconfigurados
+  # (WebClient, RestClient, RestTemplate). Los HTTP Service clients con nombre
+  # (ver customer.yml) pueden sobreescribir estos valores.
+  http:
+    clients:
+      connect-timeout: 3s
+      read-timeout: 5s
+      redirects: dont-follow
 
   # PostgreSQL
   datasource:

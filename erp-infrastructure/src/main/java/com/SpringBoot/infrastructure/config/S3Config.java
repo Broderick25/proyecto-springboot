@@ -7,6 +7,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
@@ -26,6 +27,10 @@ public class S3Config {
                 .credentialsProvider(credentialsProvider(properties))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(properties.pathStyleEnabled())
+                        .build())
+                .overrideConfiguration(ClientOverrideConfiguration.builder()
+                        .apiCallTimeout(properties.apiCallTimeout())
+                        .apiCallAttemptTimeout(properties.apiCallAttemptTimeout())
                         .build());
 
         if (properties.localEnvironment()) {

@@ -7,4 +7,6 @@ public interface StoragePort {
     void upload(String key, byte[] content, String contentType);
 
     URL generatePresignedGetUrl(String key);
+
+    void delete(String key);
 }

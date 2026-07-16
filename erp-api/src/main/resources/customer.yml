@@ -1,0 +1,7 @@
+spring:
+  http:
+    serviceclient:
+      jsonplaceholder:
+        base-url: "https://jsonplaceholder.typicode.com"
+        connect-timeout: 3s
+        read-timeout: 5s

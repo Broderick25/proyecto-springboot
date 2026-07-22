@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmación de Compra</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+            <td align="center">
+
+                <table width="600" cellpadding="0" cellspacing="0" border="0"
+                       style="background-color:#ffffff; border-radius:12px; overflow:hidden;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td align="center"
+                            style="background-color:#4DF527; padding:30px 20px;">
+                            <h1 style="margin:0; color:#1F2937; font-size:28px;">
+                                ¡Compra Confirmada!
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding:40px 30px; color:#333333;">
+
+                            <p style="font-size:18px; margin-top:0;">
+                                Hola <strong>{{customerName}}</strong>,
+                            </p>
+
+                            <p style="font-size:16px; line-height:1.6;">
+                                Gracias por tu compra. Hemos recibido y procesado correctamente tu pedido.
+                                A continuación encontrarás un resumen de la orden.
+                            </p>
+
+                            <!-- Order Summary -->
+                            <table width="100%" cellpadding="10" cellspacing="0"
+                                   style="margin:25px 0; border:1px solid #e5e7eb; border-radius:8px;">
+                                <tr>
+                                    <td style="background:#f9fafb; font-weight:bold; width:40%;">
+                                        Número de Orden
+                                    </td>
+                                    <td>
+                                        {{orderNumber}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="background:#f9fafb; font-weight:bold;">
+                                        ID de Orden
+                                    </td>
+                                    <td>
+                                        {{orderId}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="background:#f9fafb; font-weight:bold;">
+                                        Fecha de Compra
+                                    </td>
+                                    <td>
+                                        {{orderDate}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="background:#f9fafb; font-weight:bold;">
+                                        Cantidad de Productos
+                                    </td>
+                                    <td>
+                                        {{itemsCount}}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="background:#f9fafb; font-weight:bold;">
+                                        Total Pagado
+                                    </td>
+                                    <td style="font-size:18px; font-weight:bold; color:#4DF527;">
+                                        {{currency}} {{totalAmount}}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="font-size:16px; line-height:1.6;">
+                                Estamos preparando tu pedido para los siguientes pasos del proceso.
+                                Conserva este correo como comprobante de tu compra.
+                            </p>
+
+                            <!-- CTA -->
+                            <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:30px auto;">
+                                <tr>
+                                    <td align="center"
+                                        style="background-color:#1F2937; border-radius:6px;">
+                                        <a href="#"
+                                           style="display:inline-block; padding:14px 28px; color:#ffffff; text-decoration:none; font-weight:bold;">
+                                            Ver Detalles de la Orden
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="font-size:14px; color:#6b7280; line-height:1.6;">
+                                Si tienes alguna pregunta o necesitas asistencia, nuestro equipo de soporte estará encantado de ayudarte.
+                            </p>
+
+                            <p style="font-size:16px;">
+                                Saludos,<br>
+                                <strong>Equipo de Ventas</strong>
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center"
+                            style="background-color:#1F2937; color:#d1d5db; padding:20px; font-size:12px;">
+                            © 2026 Tu Empresa. Todos los derechos reservados.
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

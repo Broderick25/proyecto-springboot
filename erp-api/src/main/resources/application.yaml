@@ -55,6 +55,23 @@ spring:
   mongodb:
     uri: mongodb://debuggeandoideas:secret@localhost:27017/erp_catalog_db?authSource=admin
 
+  # Mail (SMTP Gmail)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          starttls:
+            enable: true
+            required: true
+
 # Server
 server:
   port: 9090

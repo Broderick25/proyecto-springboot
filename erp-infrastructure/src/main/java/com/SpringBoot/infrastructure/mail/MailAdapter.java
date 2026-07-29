@@ -2,7 +2,10 @@ package com.SpringBoot.infrastructure.mail;
 
 import com.SpringBoot.application.port.outbound.MailException;
 import com.SpringBoot.application.port.outbound.MailPort;
+import com.SpringBoot.application.port.outbound.OrderCancelledEmail;
 import com.SpringBoot.application.port.outbound.OrderConfirmationEmail;
+import com.SpringBoot.application.port.outbound.OrderDeliveredEmail;
+import com.SpringBoot.application.port.outbound.OrderShippedEmail;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -59,6 +62,53 @@ public class MailAdapter implements MailPort {
         } catch (org.springframework.mail.MailException e) {
             log.error("Fallo al enviar el correo de confirmación para la orden {}", email.orderNumber(), e);
             throw new MailException("No se pudo enviar el correo de confirmación para la orden " + email.orderNumber(), e);
+        }
+    }
+
+    @Override
+    public void sendOrderShipped(OrderShippedEmail email) {
+        sendSimpleText(email.to(), "Tu pedido fue enviado - " + email.orderNumber(),
+                "Hola " + email.customerName() + ",\n\n"
+                        + "Tu pedido " + email.orderNumber() + " fue enviado y ya está en camino.\n\n"
+                        + "Saludos,\nEquipo de Ventas",
+                email.orderNumber());
+    }
+
+    @Override
+    public void sendOrderDelivered(OrderDeliveredEmail email) {
+        sendSimpleText(email.to(), "Tu pedido fue entregado - " + email.orderNumber(),
+                "Hola " + email.customerName() + ",\n\n"
+                        + "Tu pedido " + email.orderNumber() + " fue entregado. ¡Gracias por tu compra!\n\n"
+                        + "Saludos,\nEquipo de Ventas",
+                email.orderNumber());
+    }
+
+    @Override
+    public void sendOrderCancelled(OrderCancelledEmail email) {
+        sendSimpleText(email.to(), "Tu pedido fue cancelado - " + email.orderNumber(),
+                "Hola " + email.customerName() + ",\n\n"
+                        + "Tu pedido " + email.orderNumber() + " fue cancelado.\n"
+                        + "Motivo: " + email.reason() + "\n\n"
+                        + "Saludos,\nEquipo de Ventas",
+                email.orderNumber());
+    }
+
+    private void sendSimpleText(String to, String subject, String body, String orderNumber) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+            helper.setTo(to);
+            helper.setFrom(mailProperties.getUsername());
+            helper.setSubject(subject);
+            helper.setText(body, false);
+
+            mailSender.send(mimeMessage);
+        } catch (MessagingException e) {
+            log.error("No se pudo construir el correo de notificación para la orden {}", orderNumber, e);
+            throw new MailException("No se pudo construir el correo de notificación para la orden " + orderNumber, e);
+        } catch (org.springframework.mail.MailException e) {
+            log.error("Fallo al enviar el correo de notificación para la orden {}", orderNumber, e);
+            throw new MailException("No se pudo enviar el correo de notificación para la orden " + orderNumber, e);
         }
     }
 

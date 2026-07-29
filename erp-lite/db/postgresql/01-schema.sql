@@ -23,7 +23,8 @@ CREATE TABLE products (
     image_url   VARCHAR(500),
     active      BOOLEAN       NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version     BIGINT        NOT NULL DEFAULT 0
 );
 
 -- Indexes for products
@@ -46,8 +47,10 @@ CREATE TABLE orders (
     status        VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     total_amount  DECIMAL(15, 2) NOT NULL CHECK (total_amount >= 0),
     currency      VARCHAR(3)   NOT NULL DEFAULT 'USD',
+    cancellation_reason VARCHAR(500),
     created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version       BIGINT       NOT NULL DEFAULT 0,
     CONSTRAINT chk_order_status CHECK (
         status IN ('PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED')
     )

@@ -6,6 +6,7 @@ import com.SpringBoot.domain.order.events.OrderConfirmed;
 import com.SpringBoot.domain.order.events.OrderCreated;
 import com.SpringBoot.domain.order.events.OrderDelivered;
 import com.SpringBoot.domain.order.events.OrderShipped;
+import com.SpringBoot.domain.order.events.OrderUpdated;
 import com.SpringBoot.domain.shared.AuditInfo;
 import com.SpringBoot.domain.shared.Money;
 
@@ -40,6 +41,17 @@ public class Order extends AggregateRoot<OrderId> {
         this.items = items;
         this.totalAmount = totalAmount;
         this.auditInfo = auditInfo;
+    }
+
+    /**
+     * Reconstruye un agregado a partir de estado ya persistido, sin registrar ningún
+     * {@link com.SpringBoot.domain.common.DomainEvent} (a diferencia de {@link #create}, que
+     * siempre registra {@code OrderCreated}). Uso exclusivo de los mappers de infraestructura
+     * al cargar una orden existente.
+     */
+    public static Order reconstitute(OrderId id, OrderNumber orderNumber, Customer customer, OrderStatus status,
+                                      List<OrderItem> items, Money totalAmount, AuditInfo auditInfo) {
+        return new Order(id, orderNumber, customer, status, new ArrayList<>(items), totalAmount, auditInfo);
     }
 
     public static Order create(OrderNumber orderNumber, Customer customer, List<OrderItem> items,
@@ -93,6 +105,24 @@ public class Order extends AggregateRoot<OrderId> {
         this.status = OrderStatus.cancelled();
         this.auditInfo = this.auditInfo.updateTimestamp();
         registerEvent(new OrderCancelled(this.id, reason, Instant.now()));
+    }
+
+    /**
+     * Reemplaza por completo las líneas de la orden. Solo permitido en {@code PENDING}: una vez
+     * confirmada, el stock ya se reservó contra el contenido original — cambiar items después
+     * dejaría esa reserva inconsistente con lo que realmente se factura/envía.
+     */
+    public void updateItems(List<OrderItem> newItems) {
+        if (!this.status.isPending()) {
+            throw new IllegalStateException(
+                    "Cannot update items of an order in status " + this.status.value() + "; only PENDING allowed");
+        }
+        validateItems(newItems);
+
+        this.items = new ArrayList<>(newItems);
+        this.totalAmount = sumItems(this.items);
+        this.auditInfo = this.auditInfo.updateTimestamp();
+        registerEvent(new OrderUpdated(this.id, Instant.now()));
     }
 
     public List<OrderItem> getItems() {

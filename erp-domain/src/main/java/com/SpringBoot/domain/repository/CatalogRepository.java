@@ -13,4 +13,5 @@ public interface CatalogRepository extends MongoRepository<Catalog, String> {
     Optional<Catalog> findByCatalogType(String catalogType);
     List<Catalog> findByActiveTrue();
     boolean existsByCatalogType(String catalogType);
+    boolean existsByCatalogTypeAndItemsId(String catalogType, String itemId);
 }

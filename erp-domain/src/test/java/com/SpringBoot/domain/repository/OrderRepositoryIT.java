@@ -16,6 +16,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace.NONE;
@@ -45,6 +46,7 @@ class OrderRepositoryIT {
     @Test
     void findByIdWithItems_traeOrderProductsSinLazyInitializationException() {
         Product product = productRepository.save(Product.builder()
+                .id(UUID.randomUUID())
                 .sku("SKU-TEST")
                 .name("Producto Test")
                 .price(BigDecimal.TEN)
@@ -52,6 +54,7 @@ class OrderRepositoryIT {
                 .build());
 
         Order order = orderRepository.save(Order.builder()
+                .id(UUID.randomUUID())
                 .orderNumber("ORD-001")
                 .customerId(1L)
                 .customerName("Cliente Test")
@@ -78,6 +81,7 @@ class OrderRepositoryIT {
     @Test
     void findByOrderNumber_encuentraPorNumeroUnico() {
         orderRepository.save(Order.builder()
+                .id(UUID.randomUUID())
                 .orderNumber("ORD-UNICO")
                 .customerId(1L)
                 .customerName("Cliente")
@@ -94,6 +98,7 @@ class OrderRepositoryIT {
     @Test
     void findByStatus_filtraPorEnumTipado() {
         orderRepository.save(Order.builder()
+                .id(UUID.randomUUID())
                 .orderNumber("ORD-STATUS")
                 .customerId(1L)
                 .customerName("Cliente")

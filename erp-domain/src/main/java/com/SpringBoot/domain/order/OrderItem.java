@@ -23,6 +23,15 @@ public class OrderItem extends Entity<OrderItemId> {
     private Money unitPrice;
     private Money subtotal;
 
+    /**
+     * Reconstruye un OrderItem a partir de estado ya persistido (sin recalcular nada, a
+     * diferencia de {@link #from}). Uso exclusivo de los mappers de infraestructura.
+     */
+    public static OrderItem reconstitute(OrderItemId id, ProductId productReference, String productName,
+                                          Quantity quantity, Money unitPrice, Money subtotal) {
+        return new OrderItem(id, productReference, productName, quantity, unitPrice, subtotal);
+    }
+
     public static OrderItem from(Product product, Quantity quantity) {
         if (product == null) {
             throw new IllegalArgumentException("product must not be null");

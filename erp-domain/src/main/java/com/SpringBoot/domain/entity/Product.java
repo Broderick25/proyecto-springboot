@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -31,9 +30,12 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Product extends BaseEntity {
 
+    // Sin generador: el id siempre lo asigna la app (el agregado DDD lo genera en Product.create(),
+    // y ese mismo id se usa en los eventos de dominio ya publicados — @UuidGenerator lo
+    // sobreescribiría siempre en el insert, sin importar el valor ya asignado, rompiendo esa
+    // consistencia).
     @EqualsAndHashCode.Include
     @Id
-    @UuidGenerator
     @Column(name = "id", nullable = false, updatable = false, columnDefinition = "uuid")
     private UUID id;
 

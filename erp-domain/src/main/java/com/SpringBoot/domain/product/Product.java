@@ -43,6 +43,20 @@ public class Product extends AggregateRoot<ProductId> {
         this.auditInfo = auditInfo;
     }
 
+    /**
+     * Reconstruye un agregado a partir de estado ya persistido, sin registrar ningún
+     * {@link com.SpringBoot.domain.common.DomainEvent} (a diferencia de {@link #create}, que
+     * siempre registra {@code ProductCreated}). Uso exclusivo de los mappers de infraestructura
+     * al cargar un producto existente.
+     */
+    public static Product reconstitute(ProductId id, SKU sku, ProductName name, String description, Money price,
+                                        Stock stock, CategoryReference category, ProductImage image, boolean active,
+                                        AuditInfo auditInfo) {
+        Product product = new Product(id, sku, name, description, price, stock, category, image, auditInfo);
+        product.active = active;
+        return product;
+    }
+
     public static Product create(SKU sku, ProductName name, String description, Money price, Stock stock,
                                   CategoryReference category, ProductImage image, String createdBy) {
         if (sku == null) {
@@ -111,12 +125,18 @@ public class Product extends AggregateRoot<ProductId> {
     }
 
     public void deactivate() {
+        if (!this.active) {
+            throw new IllegalStateException("Product is already deactivated");
+        }
         this.active = false;
         this.auditInfo = this.auditInfo.updateTimestamp();
         registerEvent(new ProductDeactivated(this.id, Instant.now()));
     }
 
     public void activate() {
+        if (this.active) {
+            throw new IllegalStateException("Product is already active");
+        }
         this.active = true;
         this.auditInfo = this.auditInfo.updateTimestamp();
         registerEvent(new ProductUpdated(this.id, Instant.now()));

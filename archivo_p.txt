@@ -1,0 +1,328 @@
+---------- CreateProductUseCase ----------
+
+/**
+ * Use Case: Create a new product.
+ * JIRA TICKET: ERP-6735
+ * 1. Validate SKU uniqueness
+ * 2. Upload image to S3 (if provided)
+ * 3. Create ProductRoot aggregate
+ * 4. Persist to PostgreSQL
+ * 5. Publish ProductCreated event (CQRS sync to MongoDB)
+ */
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class CreateProductUseCase {
+
+    private final ProductRepositoryPort productRepository;
+
+
+    public String execute(CreateProductCommand command) {
+        log.info("Creating product with SKU: {}", command.sku());
+
+        try {
+            // 1. Validate SKU uniqueness
+            validateSkuUniqueness(command.sku());
+
+            // 2. Upload image (if provided)
+
+
+            // 3. Create value objects
+            SKU sku = SKU.of(command.sku());
+            ProductName name = ProductName.of(command.name());
+            Money price = Money.of(command.price(), Currency.getInstance(command.currency()));
+            Stock stock = Stock.of(command.stock());
+            CategoryReference category = CategoryReference.of(command.categoryId());
+
+            // 4. Create product aggregate
+            ProductRoot product = ProductRoot.create(
+                    sku,
+                    name,
+                    command.description(),
+                    price,
+                    stock,
+                    category,
+                    null,
+                    command.createdBy()
+            );
+
+            log.debug("Product created in domain with ID: {}", product.getId().value());
+
+            // 5. Persist product
+            ProductRoot savedProduct = productRepository.save(product);
+
+            log.info("Product persisted with ID: {}", savedProduct.getId().value());
+
+            // TODO: Handle domain events - Sync to MongoDB
+
+            return savedProduct.getId().value().toString();
+
+        } catch (IllegalArgumentException iae) {
+            log.error("Invalid data for product creation");
+            throw new CommandException("Error creating product: " + iae.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error creating product", e);
+            throw new CommandException("Failed to create product: " + e.getMessage());
+        }
+    }
+
+    private void validateSkuUniqueness(String sku) {
+        log.debug("Validating SKU uniqueness: {}", sku);
+
+        if (productRepository.findBySku(sku).isPresent()) {
+            log.warn("SKU already exists: {}", sku);
+            throw new CommandException("Product with SKU '" + sku + "' already exists");
+        }
+    }
+
+}
+
+
+---------- DeactivateProductUseCase ----------
+
+/**
+ *  * JIRA TICKET: ERP-6736
+ * Use Case: Deactivate a product.
+ * 1. Find product by ID
+ * 2. Deactivate product (soft delete)
+ * 3. Persist changes
+ * 4. Publish ProductDeactivated event
+ */
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class DeactivateProductUseCase {
+
+    private final ProductRepositoryPort productRepository;
+
+    public void execute(DeactivateProductCommand command) {
+        log.info("Deactivating product: {}", command.productId());
+
+        try {
+            // 1. Find product
+            ProductRoot product = findProductById(command.productId());
+
+            log.debug("Current status: active={}", product.isActive());
+
+            // 2. Deactivate product
+            product.deactivate();
+
+            log.debug("Product deactivated in domain");
+
+            // 3. Persist changes
+            productRepository.save(product);
+
+            log.info("Product deactivation persisted");
+
+        } catch (IllegalStateException ise) {
+            log.error("Product already deactivated", ise);
+            throw new CommandException("Product is already deactivated");
+        } catch (Exception e) {
+            log.error("Unexpected error deactivating product", e);
+            throw new CommandException("Failed to deactivate product: " + e.getMessage());
+        }
+    }
+
+    private ProductRoot findProductById(String productId) {
+        log.debug("Finding product by ID: {}", productId);
+
+        ProductId productIdVO = ProductId.of(UUID.fromString(productId));
+
+        return productRepository.findAllById(productIdVO)
+                .orElseThrow(() -> {
+                    log.warn("Product not found: {}", productId);
+                    return new CommandException("Product not found with ID: " + productId);
+                });
+    }
+}
+
+---------- UpdateProductUseCase ----------
+
+
+/**
+ * Use Case: Update product information.
+ *  JIRA TICKET: ERP-6737
+ * 1. Find product by ID
+ * 2. Upload new image to S3 (if provided)
+ * 3. Delete old image from S3 (if replaced)
+ * 4. Update product information
+ * 5. Persist changes
+ * 6. Publish ProductUpdated event
+ */
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class UpdateProductUseCase {
+
+    private final ProductRepositoryPort productRepository;
+    private final ImageStorageServicePort imageStorageService;
+
+    public void execute(UpdateProductCommand command) {
+        log.info("Updating product: {}", command.productId());
+
+        try {
+            // 1. Find product
+            ProductRoot product = findProductById(command.productId());
+
+            log.debug("Current product: SKU={}, Name={}",
+                    product.getSku().value(),
+                    product.getName().value());
+
+            // 2. Handle image update (if provided)
+            ProductImage oldImage = product.getImage();
+            ProductImage newImage = updateImage(command, oldImage);
+
+            // 3. Build updated values
+            ProductName name = command.shouldUpdateName()
+                    ? ProductName.of(command.name())
+                    : product.getName();
+
+            String description = command.description() != null
+                    ? command.description()
+                    : product.getDescription();
+
+            Money price = command.shouldUpdatePrice()
+                    ? Money.of(command.price(), Currency.getInstance(product.getPrice().currency().getCurrencyCode()))
+                    : product.getPrice();
+
+            CategoryReference category = command.shouldUpdateCategory()
+                    ? CategoryReference.of(command.categoryId())
+                    : product.getCategory();
+
+            ProductImage finalImage = newImage != null ? newImage : product.getImage();
+
+            // 4. Update product
+            product.update(name, description, price, category, finalImage);
+
+            log.debug("Product updated in domain");
+
+            // 5. Persist changes
+            productRepository.save(product);
+
+            log.info("Product update persisted");
+
+        } catch (IllegalArgumentException iae) {
+            log.error("Invalid data for product update", iae);
+            throw new CommandException("Error updating product: " + iae.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error updating product", e);
+            throw new CommandException("Failed to update product: " + e.getMessage());
+        }
+    }
+
+    private ProductRoot findProductById(String productId) {
+        log.debug("Finding product by ID: {}", productId);
+
+        ProductId productIdVO = ProductId.of(UUID.fromString(productId));
+
+        return productRepository.findAllById(productIdVO)
+                .orElseThrow(() -> {
+                    log.warn("Product not found: {}", productId);
+                    return new CommandException("Product not found with ID: " + productId);
+                });
+    }
+
+    private ProductImage updateImage(UpdateProductCommand command, ProductImage oldImage) {
+        if (!command.hasImage()) {
+            log.debug("No image update requested");
+            return null;
+        }
+
+        log.debug("Uploading new image: {}", command.imageName());
+
+        try {
+            // Upload new image
+            ProductImage newImage = imageStorageService.upload(
+                    command.imageName(),
+                    command.imageData()
+            );
+
+            log.info("New image uploaded: {}", newImage.imageUrl());
+
+            // Delete old image (if exists)
+            if (oldImage != null) {
+
+            imageStorageService.delete(oldImage);
+            log.debug("Old image deleted: {}", oldImage.imageUrl());
+            }
+
+            return newImage;
+
+        } catch (Exception e) {
+            log.error("Failed to upload new image", e);
+            throw new CommandException("Failed to upload product image: " + e.getMessage());
+        }
+    }
+
+}
+
+---------- UpdateStockUseCase ----------
+
+/**
+ * Use Case: Update product stock
+ * JIRA TICKET: ERP-6738
+ * 1. Find product by ID
+ * 2. Increment or decrement stock
+ * 3. Persist changes
+ * 4. Publish StockChanged event
+ */
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class UpdateStockUseCase {
+
+    private final ProductRepositoryPort productRepository;
+
+    public void execute(UpdateStockCommand command) {
+        log.info("Updating stock for product: {} by {} units (reason: {})",
+                command.productId(),
+                command.quantity(),
+                command.reason());
+
+        try {
+            // 1. Find product
+            ProductRoot product = findProductById(command.productId());
+
+            log.debug("Current stock: {}", product.getStock().value());
+
+            // 2. Update stock based on operation
+            if (command.isIncrement()) {
+                product.incrementStock(command.absoluteQuantity(), command.reason());
+                log.debug("Stock incremented by {} units", command.absoluteQuantity());
+            } else if (command.isDecrement()) {
+                product.decrementStock(command.absoluteQuantity(), command.reason());
+                log.debug("Stock decremented by {} units", command.absoluteQuantity());
+            }
+
+            log.debug("New stock: {}", product.getStock().value());
+
+            // 3. Persist changes
+            productRepository.save(product);
+
+            log.info("Stock update persisted. New stock: {}", product.getStock().value());
+
+        } catch (IllegalArgumentException iae) {
+            log.error("Invalid stock update", iae);
+            throw new CommandException("Error updating stock: " + iae.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error updating stock", e);
+            throw new CommandException("Failed to update stock: " + e.getMessage());
+        }
+    }
+
+    private ProductRoot findProductById(String productId) {
+        log.debug("Finding product by ID: {}", productId);
+
+        ProductId productIdVO = ProductId.of(UUID.fromString(productId));
+
+        return productRepository.findAllById(productIdVO)
+                .orElseThrow(() -> {
+                    log.warn("Product not found: {}", productId);
+                    return new CommandException("Product not found with ID: " + productId);
+                });
+    }
+}

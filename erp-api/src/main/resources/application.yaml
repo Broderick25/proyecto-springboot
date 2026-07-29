@@ -36,9 +36,14 @@ spring:
         use_sql_comments: ${HIBERNATE_SHOW_COMMENTS:true}
 
   # MongoDB - Spring Boot 4.x
+  # auto-index-creation en false a propósito: los índices de todas las colecciones (incluido
+  # el índice de texto de product_documents) ya los crea init-mongo.js a mano. Con esto en true,
+  # Spring intenta crear su propio índice de texto (derivado de @TextIndexed) con un nombre
+  # distinto al que generó el script, y Mongo rechaza el arranque porque no permite dos índices
+  # de texto distintos en la misma colección (IndexOptionsConflict).
   data:
     mongodb:
-      auto-index-creation: true
+      auto-index-creation: false
 
     # Redis
     redis:

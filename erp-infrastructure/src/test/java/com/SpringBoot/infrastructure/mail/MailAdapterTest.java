@@ -2,7 +2,10 @@ package com.SpringBoot.infrastructure.mail;
 
 import com.SpringBoot.application.port.outbound.MailException;
 import com.SpringBoot.application.port.outbound.MailPort;
+import com.SpringBoot.application.port.outbound.OrderCancelledEmail;
 import com.SpringBoot.application.port.outbound.OrderConfirmationEmail;
+import com.SpringBoot.application.port.outbound.OrderDeliveredEmail;
+import com.SpringBoot.application.port.outbound.OrderShippedEmail;
 import jakarta.mail.Session;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.MimeMessage;
@@ -120,6 +123,52 @@ class MailAdapterTest {
         assertThatThrownBy(() -> adapter.sendOrderConfirmation(invalidRecipient))
                 .isInstanceOf(MailException.class)
                 .hasCauseInstanceOf(AddressException.class);
+    }
+
+    @Test
+    void sendOrderShipped_enviaUnCorreoDeTextoPlano() throws Exception {
+        MimeMessage mimeMessage = newMimeMessage();
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+        adapter.sendOrderShipped(new OrderShippedEmail("cliente@example.com", "Juan Pérez", "ORD-1001"));
+
+        verify(mailSender).send(mimeMessage);
+        assertThat(mimeMessage.getSubject()).isEqualTo("Tu pedido fue enviado - ORD-1001");
+        assertThat(mimeMessage.getAllRecipients()[0].toString()).contains("cliente@example.com");
+    }
+
+    @Test
+    void sendOrderDelivered_enviaUnCorreoDeTextoPlano() throws Exception {
+        MimeMessage mimeMessage = newMimeMessage();
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+        adapter.sendOrderDelivered(new OrderDeliveredEmail("cliente@example.com", "Juan Pérez", "ORD-1001"));
+
+        verify(mailSender).send(mimeMessage);
+        assertThat(mimeMessage.getSubject()).isEqualTo("Tu pedido fue entregado - ORD-1001");
+    }
+
+    @Test
+    void sendOrderCancelled_enviaUnCorreoDeTextoPlano_conElMotivo() throws Exception {
+        MimeMessage mimeMessage = newMimeMessage();
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
+        adapter.sendOrderCancelled(
+                new OrderCancelledEmail("cliente@example.com", "Juan Pérez", "ORD-1001", "Sin stock"));
+
+        verify(mailSender).send(mimeMessage);
+        assertThat(mimeMessage.getSubject()).isEqualTo("Tu pedido fue cancelado - ORD-1001");
+    }
+
+    @Test
+    void sendOrderShipped_lanzaMailException_cuandoFallaElEnvio() {
+        when(mailSender.createMimeMessage()).thenReturn(newMimeMessage());
+        doThrow(new MailSendException("SMTP no disponible")).when(mailSender).send(any(MimeMessage.class));
+
+        assertThatThrownBy(() -> adapter.sendOrderShipped(
+                new OrderShippedEmail("cliente@example.com", "Juan Pérez", "ORD-1001")))
+                .isInstanceOf(MailException.class)
+                .hasCauseInstanceOf(MailSendException.class);
     }
 
     private static MimeMessage newMimeMessage() {

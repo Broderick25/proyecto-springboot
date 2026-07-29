@@ -5,6 +5,7 @@ import com.SpringBoot.domain.customer.CustomerLookupException;
 import com.SpringBoot.domain.customer.CustomerProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -25,6 +26,7 @@ public class CustomerHttpAdapter implements CustomerProvider {
     }
 
     @Override
+    @Cacheable(cacheNames = "customers", key = "#id")
     public Optional<CustomerInfo> findById(Long id) {
         try {
             return Optional.of(mapper.toCustomerInfo(client.findById(id)));
@@ -44,6 +46,9 @@ public class CustomerHttpAdapter implements CustomerProvider {
 
     @Override
     public boolean existsById(Long id) {
+        // Llamada interna (self-invocation): no pasa por el proxy de Spring, así que NO usa el
+        // caché de findById pese a llamarlo. Aceptado: no hay ningún caller de existsById hoy
+        // que justifique duplicar la anotación.
         return findById(id).isPresent();
     }
 }

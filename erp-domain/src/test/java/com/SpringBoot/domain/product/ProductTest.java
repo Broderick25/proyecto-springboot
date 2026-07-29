@@ -106,6 +106,15 @@ class ProductTest {
     }
 
     @Test
+    void deactivate_rechazaUnProductoYaDesactivado() {
+        Product product = crearProductoBase();
+        product.deactivate();
+
+        assertThatThrownBy(product::deactivate)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void activate_marcaActivoNuevamente() {
         Product product = crearProductoBase();
         product.deactivate();
@@ -113,6 +122,14 @@ class ProductTest {
         product.activate();
 
         assertThat(product.isActive()).isTrue();
+    }
+
+    @Test
+    void activate_rechazaUnProductoYaActivo() {
+        Product product = crearProductoBase(); // ya nace activo
+
+        assertThatThrownBy(product::activate)
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

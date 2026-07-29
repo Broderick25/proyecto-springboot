@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,9 +30,12 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Order extends BaseEntity {
 
+    // Sin generador: el id siempre lo asigna la app (el agregado DDD lo genera en Order.create(),
+    // y ese mismo id se usa en los eventos de dominio ya publicados — @UuidGenerator lo
+    // sobreescribiría siempre en el insert, sin importar el valor ya asignado, rompiendo esa
+    // consistencia).
     @EqualsAndHashCode.Include
     @Id
-    @UuidGenerator
     @Column(name = "id", nullable = false, updatable = false, columnDefinition = "uuid")
     private UUID id;
 
@@ -78,6 +80,10 @@ public class Order extends BaseEntity {
     @Builder.Default
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "USD";
+
+    @Size(max = 500)
+    @Column(name = "cancellation_reason", length = 500)
+    private String cancellationReason;
 
     @Builder.Default
     @OneToMany(

@@ -1,6 +1,7 @@
 package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.domain.entity.Product;
+import com.SpringBoot.domain.entity.ProductInactiveException;
 import com.SpringBoot.domain.entity.ProductNotFoundException;
 import com.SpringBoot.domain.product.events.StockChanged;
 import com.SpringBoot.domain.repository.ProductRepository;
@@ -65,5 +66,18 @@ class DecrementProductStockCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new DecrementProductStockCommand(productId, 1, "venta")))
                 .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    void handle_lanzaProductInactiveException_cuandoElProductoEstaDesactivado() {
+        UUID productId = UUID.randomUUID();
+        Product entity = ProductMapperTest.productEntity(productId);
+        entity.setActive(false);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> handler.handle(new DecrementProductStockCommand(productId, 1, "venta")))
+                .isInstanceOf(ProductInactiveException.class);
+
+        verify(productRepository, never()).save(any());
     }
 }

@@ -44,6 +44,10 @@ public class CreateOrderCommandHandler implements CommandHandler<CreateOrderComm
     @Override
     @Transactional
     public UUID handle(CreateOrderCommand command) {
+        if (command.items() == null) {
+            throw new IllegalArgumentException("items must not be null");
+        }
+
         CustomerInfo customerInfo = customerProvider.findById(command.customerId())
                 .orElseThrow(() -> new CustomerNotFoundException(command.customerId()));
 

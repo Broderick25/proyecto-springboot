@@ -1,6 +1,7 @@
 package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.domain.document.CategoryNotFoundException;
+import com.SpringBoot.domain.entity.DuplicateSkuException;
 import com.SpringBoot.domain.product.events.ProductCreated;
 import com.SpringBoot.domain.repository.CatalogRepository;
 import com.SpringBoot.domain.repository.ProductRepository;
@@ -11,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -18,6 +20,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,6 +60,23 @@ class CreateProductCommandHandlerTest {
         assertThat(captor.getValue().getActive()).isTrue();
 
         verify(eventPublisher).publishEvent(any(ProductCreated.class));
+    }
+
+    @Test
+    void handle_lanzaDuplicateSkuException_cuandoElSaveFallaPorConstraintDeSku() {
+        lenient().when(catalogRepository.existsByCatalogTypeAndItemsId("PRODUCT_CATEGORIES", "cat-electronics"))
+                .thenReturn(true);
+        doThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint"))
+                .when(productRepository).save(any());
+        CreateProductCommand command = new CreateProductCommand(
+                "LAPTOP-001", "Laptop Dell XPS 15", "Laptop de alto rendimiento",
+                new BigDecimal("1499.99"), 25, "cat-electronics", null, "admin");
+
+        assertThatThrownBy(() -> handler.handle(command))
+                .isInstanceOf(DuplicateSkuException.class)
+                .hasCauseInstanceOf(DataIntegrityViolationException.class);
+
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test

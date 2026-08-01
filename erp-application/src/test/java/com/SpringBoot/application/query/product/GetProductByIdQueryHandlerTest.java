@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,7 @@ class GetProductByIdQueryHandlerTest {
                 .categoryId("cat-electronics")
                 .categoryName("Electronics")
                 .active(true)
+                .tags(List.of("laptop", "dell"))
                 .build();
         when(productDocumentRepository.findById(id.toString())).thenReturn(Optional.of(document));
 
@@ -50,6 +52,7 @@ class GetProductByIdQueryHandlerTest {
         assertThat(view.price()).isEqualByComparingTo("1499.99");
         assertThat(view.categoryName()).isEqualTo("Electronics");
         assertThat(view.active()).isTrue();
+        assertThat(view.tags()).containsExactly("laptop", "dell");
     }
 
     @Test

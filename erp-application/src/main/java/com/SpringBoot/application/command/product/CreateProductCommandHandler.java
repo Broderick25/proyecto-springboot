@@ -14,6 +14,7 @@ import com.SpringBoot.domain.repository.CatalogRepository;
 import com.SpringBoot.domain.repository.ProductRepository;
 import com.SpringBoot.domain.shared.Money;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +42,7 @@ public class CreateProductCommandHandler implements CommandHandler<CreateProduct
             throw new DuplicateSkuException(command.sku());
         }
         if (!catalogRepository.existsByCatalogTypeAndItemsId(CatalogTypes.PRODUCT_CATEGORIES, command.categoryId())) {
-            throw new CategoryNotFoundException(command.categoryId());
+            throw CategoryNotFoundException.byId(command.categoryId());
         }
 
         Product aggregate = Product.create(
@@ -54,7 +55,11 @@ public class CreateProductCommandHandler implements CommandHandler<CreateProduct
                 command.imageUrl() != null ? ProductImage.of(command.imageUrl()) : null,
                 command.createdBy());
 
-        productRepository.save(ProductMapper.toNewEntity(aggregate));
+        try {
+            productRepository.save(ProductMapper.toNewEntity(aggregate));
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateSkuException(command.sku(), e);
+        }
 
         aggregate.getDomainEvents().forEach(eventPublisher::publishEvent);
         aggregate.clearDomainEvents();

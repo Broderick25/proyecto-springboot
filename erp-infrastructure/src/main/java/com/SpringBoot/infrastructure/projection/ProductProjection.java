@@ -1,5 +1,6 @@
 package com.SpringBoot.infrastructure.projection;
 
+import com.SpringBoot.application.query.product.ProductCacheNames;
 import com.SpringBoot.domain.document.CatalogItem;
 import com.SpringBoot.domain.document.CatalogTypes;
 import com.SpringBoot.domain.document.ProductDocument;
@@ -13,6 +14,8 @@ import com.SpringBoot.domain.repository.ProductDocumentRepository;
 import com.SpringBoot.domain.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -38,13 +41,16 @@ public class ProductProjection {
     private final ProductRepository productRepository;
     private final ProductDocumentRepository productDocumentRepository;
     private final CatalogRepository catalogRepository;
+    private final CacheManager cacheManager;
 
     public ProductProjection(ProductRepository productRepository,
                               ProductDocumentRepository productDocumentRepository,
-                              CatalogRepository catalogRepository) {
+                              CatalogRepository catalogRepository,
+                              CacheManager cacheManager) {
         this.productRepository = productRepository;
         this.productDocumentRepository = productDocumentRepository;
         this.catalogRepository = catalogRepository;
+        this.cacheManager = cacheManager;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -84,7 +90,20 @@ public class ProductProjection {
             document.setActive(entity.getActive());
 
             productDocumentRepository.save(document);
+            evictReadCaches(entity.getId().toString(), entity.getSku());
         }, () -> log.warn("ProductProjection: no se encontró el producto {} para sincronizar con Mongo", productId));
+    }
+
+    private void evictReadCaches(String productId, String sku) {
+        evict(ProductCacheNames.BY_ID, productId);
+        evict(ProductCacheNames.BY_SKU, sku);
+    }
+
+    private void evict(String cacheName, Object key) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+            cache.evict(key);
+        }
     }
 
     private String resolveCategoryName(String categoryId) {

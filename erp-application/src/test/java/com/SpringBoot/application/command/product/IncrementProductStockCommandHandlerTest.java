@@ -1,6 +1,7 @@
 package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.domain.entity.Product;
+import com.SpringBoot.domain.entity.ProductInactiveException;
 import com.SpringBoot.domain.entity.ProductNotFoundException;
 import com.SpringBoot.domain.product.events.StockChanged;
 import com.SpringBoot.domain.repository.ProductRepository;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,5 +54,18 @@ class IncrementProductStockCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.handle(new IncrementProductStockCommand(productId, 5, "reposición")))
                 .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    void handle_lanzaProductInactiveException_cuandoElProductoEstaDesactivado() {
+        UUID productId = UUID.randomUUID();
+        Product entity = ProductMapperTest.productEntity(productId);
+        entity.setActive(false);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> handler.handle(new IncrementProductStockCommand(productId, 5, "reposición")))
+                .isInstanceOf(ProductInactiveException.class);
+
+        verify(productRepository, never()).save(any());
     }
 }

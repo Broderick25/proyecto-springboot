@@ -1,6 +1,7 @@
 package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.application.command.CommandHandler;
+import com.SpringBoot.domain.entity.ProductInactiveException;
 import com.SpringBoot.domain.entity.ProductNotFoundException;
 import com.SpringBoot.domain.product.Product;
 import com.SpringBoot.domain.repository.ProductRepository;
@@ -27,6 +28,9 @@ public class DecrementProductStockCommandHandler implements CommandHandler<Decre
                 .orElseThrow(() -> new ProductNotFoundException(command.productId()));
 
         Product aggregate = ProductMapper.toAggregate(entity);
+        if (!aggregate.isActive()) {
+            throw new ProductInactiveException(command.productId());
+        }
         aggregate.decrementStock(command.quantity(), command.reason());
 
         ProductMapper.copyToEntity(aggregate, entity);

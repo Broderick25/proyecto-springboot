@@ -1,4 +1,4 @@
-package com.SpringBoot.application.usecase;
+package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.application.port.outbound.StorageException;
 import com.SpringBoot.application.port.outbound.StoragePort;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class DeleteProductServiceTest {
+class DeleteProductCommandHandlerTest {
 
     @Mock
     private ProductRepository productRepository;
@@ -34,35 +34,35 @@ class DeleteProductServiceTest {
     private StoragePort storagePort;
 
     @InjectMocks
-    private DeleteProductService service;
+    private DeleteProductCommandHandler handler;
 
     @Test
-    void delete_eliminaElProductoYSuImagen_cuandoElProductoTeniaImagen() {
+    void handle_eliminaElProductoYSuImagen_cuandoElProductoTeniaImagen() {
         UUID productId = UUID.randomUUID();
         String imageKey = "products/" + productId + "/foto.png";
         Product product = Product.builder().id(productId).imageUrl(imageKey).build();
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        service.delete(productId);
+        handler.handle(new DeleteProductCommand(productId));
 
         verify(productRepository).delete(product);
         verify(storagePort).delete(imageKey);
     }
 
     @Test
-    void delete_noIntentaEliminarImagen_cuandoElProductoNoTeniaImagen() {
+    void handle_noIntentaEliminarImagen_cuandoElProductoNoTeniaImagen() {
         UUID productId = UUID.randomUUID();
         Product product = Product.builder().id(productId).build();
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        service.delete(productId);
+        handler.handle(new DeleteProductCommand(productId));
 
         verify(productRepository).delete(product);
         verify(storagePort, never()).delete(anyString());
     }
 
     @Test
-    void delete_ignoraElFalloAlEliminarLaImagenEnS3() {
+    void handle_ignoraElFalloAlEliminarLaImagenEnS3() {
         UUID productId = UUID.randomUUID();
         String imageKey = "products/" + productId + "/foto.png";
         Product product = Product.builder().id(productId).imageUrl(imageKey).build();
@@ -70,15 +70,15 @@ class DeleteProductServiceTest {
         doThrow(new StorageException("boom", new RuntimeException()))
                 .when(storagePort).delete(imageKey);
 
-        assertThatCode(() -> service.delete(productId)).doesNotThrowAnyException();
+        assertThatCode(() -> handler.handle(new DeleteProductCommand(productId))).doesNotThrowAnyException();
     }
 
     @Test
-    void delete_lanzaProductNotFoundException_cuandoElProductoNoExiste() {
+    void handle_lanzaProductNotFoundException_cuandoElProductoNoExiste() {
         UUID productId = UUID.randomUUID();
         when(productRepository.findById(productId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.delete(productId))
+        assertThatThrownBy(() -> handler.handle(new DeleteProductCommand(productId)))
                 .isInstanceOf(ProductNotFoundException.class);
 
         verify(productRepository, never()).delete(org.mockito.ArgumentMatchers.any());
@@ -86,7 +86,7 @@ class DeleteProductServiceTest {
     }
 
     @Test
-    void delete_lanzaProductInUseException_cuandoElProductoTienePedidosAsociados() {
+    void handle_lanzaProductInUseException_cuandoElProductoTienePedidosAsociados() {
         UUID productId = UUID.randomUUID();
         String imageKey = "products/" + productId + "/foto.png";
         Product product = Product.builder().id(productId).imageUrl(imageKey).build();
@@ -94,7 +94,7 @@ class DeleteProductServiceTest {
         doThrow(new DataIntegrityViolationException("fk violation"))
                 .when(productRepository).delete(product);
 
-        assertThatThrownBy(() -> service.delete(productId))
+        assertThatThrownBy(() -> handler.handle(new DeleteProductCommand(productId)))
                 .isInstanceOf(ProductInUseException.class)
                 .hasCauseInstanceOf(DataIntegrityViolationException.class);
 

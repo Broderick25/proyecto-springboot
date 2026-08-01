@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +32,7 @@ class CreateCategoryCommandHandlerTest {
 
     @Test
     void handle_creaElCatalogo_cuandoAunNoExiste() {
+        when(catalogRepository.existsByCatalogTypeAndItemsId("PRODUCT_CATEGORIES", "cat-sports")).thenReturn(false);
         when(catalogRepository.findByCatalogType("PRODUCT_CATEGORIES")).thenReturn(Optional.empty());
 
         String categoryId = handler.handle(
@@ -53,6 +55,7 @@ class CreateCategoryCommandHandlerTest {
                 .catalogType("PRODUCT_CATEGORIES")
                 .items(existingItems)
                 .build();
+        when(catalogRepository.existsByCatalogTypeAndItemsId("PRODUCT_CATEGORIES", "cat-sports")).thenReturn(false);
         when(catalogRepository.findByCatalogType("PRODUCT_CATEGORIES")).thenReturn(Optional.of(catalog));
 
         handler.handle(new CreateCategoryCommand("cat-sports", "SPORTS", "Sports", "Sporting goods"));
@@ -66,16 +69,35 @@ class CreateCategoryCommandHandlerTest {
 
     @Test
     void handle_lanzaDuplicateCategoryException_cuandoElIdYaExiste() {
-        List<CatalogItem> existingItems = new ArrayList<>(List.of(
-                new CatalogItem("cat-electronics", "ELECTRONICS", "Electronics", null, 1, null)));
-        Catalog catalog = Catalog.builder()
-                .catalogType("PRODUCT_CATEGORIES")
-                .items(existingItems)
-                .build();
-        when(catalogRepository.findByCatalogType("PRODUCT_CATEGORIES")).thenReturn(Optional.of(catalog));
+        when(catalogRepository.existsByCatalogTypeAndItemsId("PRODUCT_CATEGORIES", "cat-electronics"))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> handler.handle(
                 new CreateCategoryCommand("cat-electronics", "ELECTRONICS", "Electronics", null)))
                 .isInstanceOf(DuplicateCategoryException.class);
+
+        verify(catalogRepository, never()).findByCatalogType(org.mockito.ArgumentMatchers.any());
+        verify(catalogRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void handle_lanzaIllegalArgumentException_cuandoElIdEsBlanco() {
+        assertThatThrownBy(() -> handler.handle(new CreateCategoryCommand("  ", "SPORTS", "Sports", null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(catalogRepository, never()).existsByCatalogTypeAndItemsId(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void handle_lanzaIllegalArgumentException_cuandoElCodeEsBlanco() {
+        assertThatThrownBy(() -> handler.handle(new CreateCategoryCommand("cat-sports", "  ", "Sports", null)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void handle_lanzaIllegalArgumentException_cuandoElValueEsBlanco() {
+        assertThatThrownBy(() -> handler.handle(new CreateCategoryCommand("cat-sports", "SPORTS", "  ", null)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

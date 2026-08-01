@@ -101,6 +101,16 @@ class CreateOrderCommandHandlerTest {
     }
 
     @Test
+    void handle_lanzaIllegalArgumentException_cuandoItemsEsNull() {
+        CreateOrderCommand command = new CreateOrderCommand(7L, null, "admin");
+
+        assertThatThrownBy(() -> handler.handle(command))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void handle_lanzaProductNotFoundException_cuandoUnProductoNoExiste() {
         UUID productId = UUID.randomUUID();
         when(customerProvider.findById(7L)).thenReturn(Optional.of(

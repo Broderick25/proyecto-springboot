@@ -25,8 +25,12 @@ public class CustomerHttpAdapter implements CustomerProvider {
         this.mapper = mapper;
     }
 
+    // "unless" evita cachear Optional.empty() (JSONPlaceholder no lo necesita, es un dataset
+    // estático, pero sí importaría si este adapter se reemplaza por un cliente de un servicio
+    // de clientes real con datos mutables: sin esto, un cliente recién creado seguiría
+    // devolviendo "no encontrado" hasta que expire el TTL).
     @Override
-    @Cacheable(cacheNames = "customers", key = "#id")
+    @Cacheable(cacheNames = "customers", key = "#id", unless = "#result.isEmpty()")
     public Optional<CustomerInfo> findById(Long id) {
         try {
             return Optional.of(mapper.toCustomerInfo(client.findById(id)));

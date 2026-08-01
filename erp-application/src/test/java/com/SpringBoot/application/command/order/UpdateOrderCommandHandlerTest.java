@@ -120,6 +120,17 @@ class UpdateOrderCommandHandlerTest {
     }
 
     @Test
+    void handle_lanzaIllegalArgumentException_cuandoItemsEsNull() {
+        UUID orderId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> handler.handle(new UpdateOrderCommand(orderId, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(orderRepository, never()).findByIdWithItems(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void handle_lanzaOrderNotFoundException_cuandoLaOrdenNoExiste() {
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.empty());

@@ -6,6 +6,7 @@ import com.SpringBoot.application.query.order.view.OrderView;
 import com.SpringBoot.domain.entity.Order;
 import com.SpringBoot.domain.entity.OrderNotFoundException;
 import com.SpringBoot.domain.repository.OrderRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,6 +19,7 @@ public class GetOrderByIdQueryHandler implements QueryHandler<GetOrderByIdQuery,
     }
 
     @Override
+    @Cacheable(cacheNames = OrderCacheNames.BY_ID, key = "#query.orderId().toString()")
     public OrderView handle(GetOrderByIdQuery query) {
         Order entity = orderRepository.findByIdWithItems(query.orderId())
                 .orElseThrow(() -> new OrderNotFoundException(query.orderId()));

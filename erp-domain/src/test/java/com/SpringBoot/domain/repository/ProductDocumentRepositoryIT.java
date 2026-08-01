@@ -4,6 +4,7 @@ import com.SpringBoot.domain.document.ProductDocument;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MongoDBContainer;
@@ -56,8 +57,8 @@ class ProductDocumentRepositoryIT {
                 .active(true)
                 .build());
 
-        var results = productDocumentRepository.findByCategoryId("cat-perifericos");
+        var results = productDocumentRepository.findByCategoryId("cat-perifericos", PageRequest.of(0, 20));
 
-        assertThat(results).hasSize(1);
+        assertThat(results.getContent()).hasSize(1);
     }
 }

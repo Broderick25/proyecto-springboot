@@ -1,5 +1,6 @@
 package com.SpringBoot.infrastructure.projection;
 
+import com.SpringBoot.application.query.product.ProductCacheNames;
 import com.SpringBoot.domain.document.Catalog;
 import com.SpringBoot.domain.document.CatalogItem;
 import com.SpringBoot.domain.document.ProductDocument;
@@ -16,6 +17,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -39,6 +42,15 @@ class ProductProjectionTest {
 
     @Mock
     private CatalogRepository catalogRepository;
+
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private Cache productByIdCache;
+
+    @Mock
+    private Cache productBySkuCache;
 
     @InjectMocks
     private ProductProjection projection;
@@ -123,5 +135,33 @@ class ProductProjectionTest {
         projection.on(new ProductDeactivated(ProductId.of(productId), Instant.now()));
 
         verify(productDocumentRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void on_evictaLosCachesDeLecturaPorIdYSku_trasResincronizar() {
+        UUID productId = UUID.randomUUID();
+        when(productRepository.findById(productId)).thenReturn(Optional.of(productEntity(productId)));
+        when(productDocumentRepository.findById(productId.toString())).thenReturn(Optional.empty());
+        when(catalogRepository.findByCatalogType("PRODUCT_CATEGORIES")).thenReturn(Optional.empty());
+        when(cacheManager.getCache(ProductCacheNames.BY_ID)).thenReturn(productByIdCache);
+        when(cacheManager.getCache(ProductCacheNames.BY_SKU)).thenReturn(productBySkuCache);
+
+        projection.on(new ProductDeactivated(ProductId.of(productId), Instant.now()));
+
+        verify(productByIdCache).evict(productId.toString());
+        verify(productBySkuCache).evict("LAPTOP-001");
+    }
+
+    @Test
+    void on_noFalla_cuandoElCacheManagerNoTieneElCacheRegistrado() {
+        UUID productId = UUID.randomUUID();
+        when(productRepository.findById(productId)).thenReturn(Optional.of(productEntity(productId)));
+        when(productDocumentRepository.findById(productId.toString())).thenReturn(Optional.empty());
+        when(catalogRepository.findByCatalogType("PRODUCT_CATEGORIES")).thenReturn(Optional.empty());
+        when(cacheManager.getCache(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+
+        projection.on(new ProductDeactivated(ProductId.of(productId), Instant.now()));
+
+        verify(productDocumentRepository).save(org.mockito.ArgumentMatchers.any());
     }
 }

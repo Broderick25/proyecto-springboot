@@ -1,4 +1,4 @@
-package com.SpringBoot.application.usecase;
+package com.SpringBoot.application.command.order;
 
 import com.SpringBoot.application.port.outbound.MailPort;
 import com.SpringBoot.application.port.outbound.OrderConfirmationEmail;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SendOrderConfirmationEmailServiceTest {
+class SendOrderConfirmationCommandHandlerTest {
 
     private static final String TEST_RECIPIENT = "test-recipient@example.com";
 
@@ -41,15 +41,16 @@ class SendOrderConfirmationEmailServiceTest {
     @Mock
     private MailPort mailPort;
 
-    private SendOrderConfirmationEmailService service;
+    private SendOrderConfirmationCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        service = new SendOrderConfirmationEmailService(orderRepository, customerProvider, mailPort, TEST_RECIPIENT);
+        handler = new SendOrderConfirmationCommandHandler(orderRepository, customerProvider, mailPort,
+                TEST_RECIPIENT);
     }
 
     @Test
-    void sendConfirmation_envaiElCorreoAlDestinatarioDePrueba_cuandoOrdenYClienteExisten() {
+    void handle_envaiElCorreoAlDestinatarioDePrueba_cuandoOrdenYClienteExisten() {
         UUID orderId = UUID.randomUUID();
         Order order = Order.builder()
                 .id(orderId)
@@ -67,7 +68,7 @@ class SendOrderConfirmationEmailServiceTest {
         when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.of(order));
         when(customerProvider.existsById(7L)).thenReturn(true);
 
-        service.sendConfirmation(orderId);
+        handler.handle(new SendOrderConfirmationCommand(orderId));
 
         ArgumentCaptor<OrderConfirmationEmail> captor = ArgumentCaptor.forClass(OrderConfirmationEmail.class);
         verify(mailPort).sendOrderConfirmation(captor.capture());
@@ -83,18 +84,18 @@ class SendOrderConfirmationEmailServiceTest {
     }
 
     @Test
-    void sendConfirmation_lanzaOrderNotFoundException_cuandoLaOrdenNoExiste() {
+    void handle_lanzaOrderNotFoundException_cuandoLaOrdenNoExiste() {
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.sendConfirmation(orderId))
+        assertThatThrownBy(() -> handler.handle(new SendOrderConfirmationCommand(orderId)))
                 .isInstanceOf(OrderNotFoundException.class);
 
         verify(mailPort, never()).sendOrderConfirmation(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void sendConfirmation_lanzaCustomerNotFoundException_cuandoElClienteNoExiste() {
+    void handle_lanzaCustomerNotFoundException_cuandoElClienteNoExiste() {
         UUID orderId = UUID.randomUUID();
         Order order = Order.builder()
                 .id(orderId)
@@ -109,7 +110,7 @@ class SendOrderConfirmationEmailServiceTest {
         when(orderRepository.findByIdWithItems(orderId)).thenReturn(Optional.of(order));
         when(customerProvider.existsById(7L)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.sendConfirmation(orderId))
+        assertThatThrownBy(() -> handler.handle(new SendOrderConfirmationCommand(orderId)))
                 .isInstanceOf(CustomerNotFoundException.class);
 
         verify(mailPort, never()).sendOrderConfirmation(org.mockito.ArgumentMatchers.any());

@@ -1,6 +1,7 @@
 package com.SpringBoot.application.command.product;
 
 import com.SpringBoot.application.command.CommandHandler;
+import com.SpringBoot.domain.entity.ProductInactiveException;
 import com.SpringBoot.domain.entity.ProductNotFoundException;
 import com.SpringBoot.domain.product.CategoryReference;
 import com.SpringBoot.domain.product.Product;
@@ -32,6 +33,9 @@ public class UpdateProductCommandHandler implements CommandHandler<UpdateProduct
                 .orElseThrow(() -> new ProductNotFoundException(command.productId()));
 
         Product aggregate = ProductMapper.toAggregate(entity);
+        if (!aggregate.isActive()) {
+            throw new ProductInactiveException(command.productId());
+        }
         aggregate.update(
                 ProductName.of(command.name()),
                 command.description(),

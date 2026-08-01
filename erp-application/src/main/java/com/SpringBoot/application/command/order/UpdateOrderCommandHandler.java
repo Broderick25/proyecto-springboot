@@ -36,6 +36,10 @@ public class UpdateOrderCommandHandler implements CommandHandler<UpdateOrderComm
     @Override
     @Transactional
     public Void handle(UpdateOrderCommand command) {
+        if (command.items() == null) {
+            throw new IllegalArgumentException("items must not be null");
+        }
+
         com.SpringBoot.domain.entity.Order entity = orderRepository.findByIdWithItems(command.orderId())
                 .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
 
